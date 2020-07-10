@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: datetime-injector-app
-        image: datetime-injector-app:0.2
+        image: datetime-injector-app:0.3
         ports:
         - containerPort: 5000
         resources:
