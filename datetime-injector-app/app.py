@@ -1,10 +1,29 @@
 #!flask/bin/python
 from flask import Flask, jsonify, abort, make_response
 from datetime import datetime
-from confluent_kafka import Producer
+from confluent_kafka import Producer, Consumer
+import socket
+import json
 
 app = Flask(__name__)
-p = Producer({'bootstrap.servers': 'localhost:9092'})
+
+producer_conf = {
+    # 'bootstrap.servers': 'localhost:9092',
+    'bootstrap.servers': 'my-kafka-service:9092',
+    'client.id': socket.gethostname()
+}
+p = Producer(producer_conf)
+
+consumer_conf = {
+    # 'bootstrap.servers': 'localhost:9092',
+    'bootstrap.servers': "my-kafka-service:9092",
+    'group.id': 'mygroup',
+    'client.id': socket.gethostname(),
+    'enable.auto.commit': True,
+    'session.timeout.ms': 6000,
+    'default.topic.config': {'auto.offset.reset': 'earliest'}
+}
+c = Consumer(consumer_conf)
 
 
 @app.route('/')
@@ -29,6 +48,29 @@ def insert_message():
         'Message': {'Key': key, "Value": dateTimeObj}
     }
     return jsonify(response)
+
+
+@app.route('/consumer/printlog', methods=['GET'])
+def basic_consume_loop():
+    # Process messages
+    c.subscribe(['datetime-topic'])
+
+    try:
+        while True:
+            msg = c.poll(0.1)
+            if msg is None:
+                # No message available within timeout.
+                # Initial message consumption may take up to
+                # `session.timeout.ms` for the consumer group to
+                # rebalance and start consuming
+                continue
+            elif not msg.error():
+                return ('Received message: {0}'.format(msg.value()))
+            else:
+                return ('error: {}'.format(msg.error()))
+    finally:
+        # TODO: list out messages consumed
+        c.commit()
 
 
 @app.errorhandler(404)
