@@ -1,0 +1,149 @@
+---
+
+- hosts: all
+  become: true
+
+  tasks:
+  - name: Install packages that allow apt to be used over HTTPS and pip/dev dependencies
+    apt:
+      name: "{{ item }}"
+      state: present
+      update_cache: yes
+    loop:
+      - apt-transport-https
+      - ca-certificates
+      - python-pip
+      - python-dev
+      - python-setuptools
+      - libgit2-dev
+      - conntrack
+
+  - name: Install Git
+    package:
+      name:
+        - git
+      state: present
+    become: True
+
+  - name: Force upgrade of pip itself
+    pip:
+      name: pip
+      state: latest
+    become: True
+
+  - name: Add apt signing key for Docker
+    apt_key:
+      url: https://download.docker.com/linux/ubuntu/gpg
+      state: present
+
+  - name: Add apt respository for stable version of Docker
+    shell: |
+      add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+      apt-get update
+
+  - name: Install Docker
+    apt:
+      name: docker-ce
+      state: present
+      update_cache: yes
+
+  - name: Add vagrant user to docker group
+    shell: sudo usermod -aG docker vagrant
+
+  - name: Add apt signing key for Kubectl
+    apt_key:
+      url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+      state: present
+
+  - name: Add apt repo for kubectl
+    apt_repository:
+      repo: deb https://apt.kubernetes.io/ kubernetes-xenial main
+      state: present
+
+  - name: Install kubectl
+    apt:
+      name: kubectl
+      state: present
+      update_cache: yes
+
+  - name: Install minikube
+    shell: |
+      curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+      chmod +x minikube
+      mkdir -p /home/vagrant/.local/bin/
+      install minikube /home/vagrant/.local/bin/
+
+  - name: Start minikube
+    shell: minikube start --vm-driver=docker
+    become: true
+    become_user: root
+
+  - name: Verify status of cluster
+    shell: minikube status
+
+  - name: Ensure pyhelm is installed
+    pip:
+      name:
+        - pyhelm
+      extra_args: --ignore-installed requests
+      state: present
+
+  - name: Install older version of requests for pyhelm
+    pip:
+      name:
+        - requests==2.14.2
+      state: present
+
+  - name: Ensure pyhelm is installed.
+    pip:
+      name:
+        - pyhelm
+      state: present
+    # FIXME: incompatabiltiy with helm ansible module (https://github.com/ansible/ansible/issues/37148)
+
+  - name: Install Helm
+    shell: |
+      curl https://helm.baltorepo.com/organization/signing.asc | apt-key add -
+      echo "deb https://baltocdn.com/helm/stable/debian/ all main" | tee /etc/apt/sources.list.d/helm-stable-debian.list
+      apt-get update
+      apt-get install helm
+
+  - name: Add apt signing key for Helm
+    apt_key:
+      url:  https://helm.baltorepo.com/organization/signing.asc
+      state: present
+
+  - name: Add apt repository for stable version of Helm
+    apt_repository:
+      repo: deb https://baltocdn.com/helm/stable/debian/ all main
+      state: present
+
+  - name: Install Helm
+    apt:
+      name: helm
+      state: present
+      update_cache: yes
+
+  - name: Install Helm Charts from git repo
+    shell: |
+      helm repo add confluentinc https://confluentinc.github.io/cp-helm-charts/
+      helm repo update
+      helm install confluentinc/cp-helm-charts --name my-confluent --version 0.5.0
+
+  - name: Copy web application to guest
+    copy:
+      src: ../datetime-injector-app
+      dest: /app
+
+  - name: Copy web application kubernetes deployment to guest
+    copy:
+      src: ../kubernetes/deployments
+      dest: /app/deployments
+
+  - name: Build docker image to minikubes docker registry
+    shell: |
+      eval $(minikube -p minikube docker-env)
+      docker build -t datetime-injector-app:0.3 -f /app/Dockerfile
+
+  - name: Deploy datetime-injector-app to minikube cluster
+    shell: kubectl create -f /app/deployments/datetime-injector-app.yml
