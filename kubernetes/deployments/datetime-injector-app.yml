@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: datetime-injector-app
+  labels:
+    app: webapi
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: webapi
+  template:
+    metadata:
+      labels:
+        app: webapi
+    spec:
+      containers:
+      - name: datetime-injector-app
+        image: datetime-injector-app:0.2
+        ports:
+        - containerPort: 5000
+        resources:
+            requests:
+              memory: "32Mi"
+              cpu: "200m"
+            limits:
+              memory: "64Mi"
+              cpu: "250m"
