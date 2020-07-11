@@ -13,7 +13,7 @@ Vagrant.configure("2") do |config|
         k8s.vm.box = IMAGE_NAME
 
         k8s.vm.provision "ansible" do |ansible|
-            ansible.playbook = "provision_box/playbook.yml"
+            ansible.playbook = "ubuntu-box/playbook.yml"
         end
     end
 end
