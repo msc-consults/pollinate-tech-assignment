@@ -22,6 +22,13 @@ Each of the items below contain a link to a more detailed overview of that area,
    - [Kubernetes deployment](kubernetes/README.md) of the `datetime-injector-app`
    - [Provisioning ansible code](provision-environment/README.md), that uses Vagrant to sandbox deployment to a Ubuntu VM
 
+## How to get Started
+
+Due to the issues with not being able to fully provision a Vagrant Guest VM, the only working solution is to have a minikube cluster running on your local machine, and then to follow the instructions outlined in:
+
+1. [datetime-injector-app README](datetime-injector-app/README.md) and then the
+2. [Kubernetes README](kubernetes/README.md)
+
 ## Troubles in Paradise
 
 At the start of this project, I had envisioned that I'd be delivering a more complete solution than what I present today. 
