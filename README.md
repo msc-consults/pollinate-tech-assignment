@@ -1,10 +1,6 @@
 # pollinate-tech-assignment
 Pollinate - Platform Engineering Tech Assignment - v3.0
 
-## Table of Contents
-
-{{TOC}}
-
 ## Introduction
 
 This project is designed to demonstrate the use of Kafka, particularly the ability to host Kafka in a kubernetes cluster.
