@@ -18,9 +18,9 @@ Each of the items below contain a link to a more detailed overview of that area,
 
 1. [High level design document](HLD.pdf)
 2. Supporting implementation
-	3. [datetime-injector-app](datetime-injector-app/README.md) - the web application
-	4. [Kubernetes deployment](kubernetes/README.md) of the `datetime-injector-app`
-	5. [Provisioning ansible code](provision-environment/README.md), that uses Vagrant to sandbox deployment to a Ubuntu VM
+   - [datetime-injector-app](datetime-injector-app/README.md) - the web application
+   - [Kubernetes deployment](kubernetes/README.md) of the `datetime-injector-app`
+   - [Provisioning ansible code](provision-environment/README.md), that uses Vagrant to sandbox deployment to a Ubuntu VM
 
 ## Troubles in Paradise
 
