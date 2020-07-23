@@ -42,7 +42,17 @@
       update_cache: yes
 
   - name: Add vagrant user to docker group
-    shell: sudo usermod -aG docker vagrant
+    user:
+      name: vagrant
+      group: docker
+
+  - name: Reset ssh connection to allow user changes to affect 'current login user'
+    meta: reset_connection
+
+  - name: Checking vagrant user can access docker daemon
+    shell: docker run hello-world
+    become: true
+    become_user: vagrant
 
   - name: Add apt signing key for Kubectl
     apt_key:
@@ -96,13 +106,6 @@
         - pyhelm
       state: present
 
-  - name: Install Helm
-    shell: |
-      curl https://helm.baltorepo.com/organization/signing.asc | apt-key add -
-      echo "deb https://baltocdn.com/helm/stable/debian/ all main" | tee /etc/apt/sources.list.d/helm-stable-debian.list
-      apt-get update
-      apt-get install helm
-
   - name: Add apt signing key for Helm
     apt_key:
       url:  https://helm.baltorepo.com/organization/signing.asc
@@ -120,7 +123,7 @@
       update_cache: yes
 
   - name: Install Helm Charts from git repo
-    shell: helm repo add confluentinc https://confluentinc.github.io/cp-helm-charts/
+    shell: helm repo add incubator https://kubernetes-charts-incubator.storage.googleapis.com
     become: true
     become_user: vagrant
 
@@ -130,7 +133,7 @@
     become_user: vagrant
 
   - name: Install charts
-    shell: helm install my-confluent confluentinc/cp-helm-charts --version 0.5.0
+    shell: helm install my-kafka incubator/kafka --version 0.21.2
     become: true
     become_user: vagrant
 
@@ -141,7 +144,7 @@
 
   - name: Copy web application kubernetes deployment to guest
     copy:
-      src: ../../kubernetes/deployments
+      src: ../../kubernetes
       dest: /app
 
   - name: Build docker image to minikubes docker registry
@@ -152,6 +155,18 @@
     become_user: vagrant
 
   - name: Deploy datetime-injector-app to minikube cluster
-    shell: kubectl create -f /app/deployments/datetime-injector-app.yml
+    shell: |
+      kubectl create -f /app/datetime-injector-app/deployment.yml
+      kubectl create -f /app/datetime-injector-app/service.yml
     become: true
     become_user: vagrant
+
+  - name: Waiting for datetime-injector-app pods to become ready
+    shell: kubectl wait --for=condition=Ready pods --selector app=webapi --timeout=600s
+    register: datetime_injector_app_pods_ready
+    become: true
+    become_user: vagrant
+  - debug: var=datetime_injector_app_pods_ready.stdout_lines
+
+  - name: Deploy curl to minikube cluster
+    shell: kubectl run curl --image=radial/busyboxplus:curl -i --tty

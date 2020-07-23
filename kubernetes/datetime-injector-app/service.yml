@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: datetime-injector-app
+spec:
+  selector:
+    app: webapi
+  ports:
+    - protocol: TCP
+      port: 5000
