@@ -156,8 +156,8 @@
 
   - name: Deploy datetime-injector-app to minikube cluster
     shell: |
-      kubectl create -f /app/datetime-injector-app/deployment.yml
-      kubectl create -f /app/datetime-injector-app/service.yml
+      kubectl create -f /app/kubernetes/datetime-injector-app/deployment.yml
+      kubectl create -f /app/kubernetes/datetime-injector-app/service.yml
     become: true
     become_user: vagrant
 
@@ -168,5 +168,18 @@
     become_user: vagrant
   - debug: var=datetime_injector_app_pods_ready.stdout_lines
 
-  - name: Deploy curl to minikube cluster
-    shell: kubectl run curl --image=radial/busyboxplus:curl -i --tty
+  # FIXME
+  # - name: Deploy curl to minikube cluster
+  #   shell: kubectl run curl --image=radial/busyboxplus:curl
+  #   become: true
+  #   become_user: vagrant
+
+  - name: Install stern
+    shell: |
+      curl -s https://api.github.com/repos/wercker/stern/releases/latest \
+      | grep "browser_download_url.*linux" \
+      | cut -d : -f 2,3 \
+      | tr -d \" \
+      | wget -qi - -P /usr/local/bin
+      mv /usr/local/bin/stern_linux_amd64 /usr/local/bin/stern
+      chmod +x /usr/local/bin/stern
