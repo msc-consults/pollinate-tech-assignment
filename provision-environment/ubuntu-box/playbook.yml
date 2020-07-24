@@ -12,11 +12,8 @@
     loop:
       - apt-transport-https
       - ca-certificates
-      - python-pip
-      - python-dev
-      - python-setuptools
-      - libgit2-dev
-      - conntrack
+      - python3-pip
+      - python3-setuptools
 
   - name: Install Git
     package:
@@ -25,11 +22,8 @@
       state: present
     become: True
 
-  - name: Force upgrade of pip itself
-    pip:
-      name: pip
-      state: latest
-    become: True
+  - name: Upgrade pip3
+    shell: pip3 install --upgrade pip && pip3 --version
 
   - name: Add apt signing key for Docker
     apt_key:
@@ -48,7 +42,17 @@
       update_cache: yes
 
   - name: Add vagrant user to docker group
-    shell: sudo usermod -aG docker vagrant
+    user:
+      name: vagrant
+      group: docker
+
+  - name: Reset ssh connection to allow user changes to affect 'current login user'
+    meta: reset_connection
+
+  - name: Checking vagrant user can access docker daemon
+    shell: docker run hello-world
+    become: true
+    become_user: vagrant
 
   - name: Add apt signing key for Kubectl
     apt_key:
@@ -70,16 +74,18 @@
     shell: |
       curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
       chmod +x minikube
-      mkdir -p /home/vagrant/.local/bin/
-      install minikube /home/vagrant/.local/bin/
+      mkdir -p /usr/local/bin/
+      install minikube /usr/local/bin/
 
   - name: Start minikube
-    shell: minikube start --vm-driver=docker
+    shell: minikube start --driver=docker
     become: true
-    become_user: root
+    become_user: vagrant
 
   - name: Verify status of cluster
     shell: minikube status
+    become: true
+    become_user: vagrant
 
   - name: Ensure pyhelm is installed
     pip:
@@ -99,14 +105,6 @@
       name:
         - pyhelm
       state: present
-    # FIXME: incompatabiltiy with helm ansible module (https://github.com/ansible/ansible/issues/37148)
-
-  - name: Install Helm
-    shell: |
-      curl https://helm.baltorepo.com/organization/signing.asc | apt-key add -
-      echo "deb https://baltocdn.com/helm/stable/debian/ all main" | tee /etc/apt/sources.list.d/helm-stable-debian.list
-      apt-get update
-      apt-get install helm
 
   - name: Add apt signing key for Helm
     apt_key:
@@ -125,25 +123,63 @@
       update_cache: yes
 
   - name: Install Helm Charts from git repo
-    shell: |
-      helm repo add confluentinc https://confluentinc.github.io/cp-helm-charts/
-      helm repo update
-      helm install confluentinc/cp-helm-charts --name my-confluent --version 0.5.0
+    shell: helm repo add incubator https://kubernetes-charts-incubator.storage.googleapis.com
+    become: true
+    become_user: vagrant
+
+  - name: Helm repo update
+    shell: helm repo update
+    become: true
+    become_user: vagrant
+
+  - name: Install charts
+    shell: helm install my-kafka incubator/kafka --version 0.21.2
+    become: true
+    become_user: vagrant
 
   - name: Copy web application to guest
     copy:
-      src: ../datetime-injector-app
+      src: ../../datetime-injector-app
       dest: /app
 
   - name: Copy web application kubernetes deployment to guest
     copy:
-      src: ../kubernetes/deployments
-      dest: /app/deployments
+      src: ../../kubernetes
+      dest: /app
 
   - name: Build docker image to minikubes docker registry
     shell: |
       eval $(minikube -p minikube docker-env)
-      docker build -t datetime-injector-app:0.3 -f /app/Dockerfile
+      docker build /app/datetime-injector-app -t datetime-injector-app:0.3
+    become: true
+    become_user: vagrant
 
   - name: Deploy datetime-injector-app to minikube cluster
-    shell: kubectl create -f /app/deployments/datetime-injector-app.yml
+    shell: |
+      kubectl create -f /app/kubernetes/datetime-injector-app/deployment.yml
+      kubectl create -f /app/kubernetes/datetime-injector-app/service.yml
+    become: true
+    become_user: vagrant
+
+  - name: Waiting for datetime-injector-app pods to become ready
+    shell: kubectl wait --for=condition=Ready pods --selector app=webapi --timeout=600s
+    register: datetime_injector_app_pods_ready
+    become: true
+    become_user: vagrant
+  - debug: var=datetime_injector_app_pods_ready.stdout_lines
+
+  # FIXME
+  # - name: Deploy curl to minikube cluster
+  #   shell: kubectl run curl --image=radial/busyboxplus:curl
+  #   become: true
+  #   become_user: vagrant
+
+  - name: Install stern
+    shell: |
+      curl -s https://api.github.com/repos/wercker/stern/releases/latest \
+      | grep "browser_download_url.*linux" \
+      | cut -d : -f 2,3 \
+      | tr -d \" \
+      | wget -qi - -P /usr/local/bin
+      mv /usr/local/bin/stern_linux_amd64 /usr/local/bin/stern
+      chmod +x /usr/local/bin/stern

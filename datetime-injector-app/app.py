@@ -25,7 +25,7 @@ app = Flask(__name__)
 # configuration used for the kafka producer
 producer_conf = {
     # 'bootstrap.servers': 'localhost:9092',
-    'bootstrap.servers': 'my-confluent-cp-kafka:9092',
+    'bootstrap.servers': 'my-kafka:9092',
     'client.id': socket.gethostname()
 }
 p = Producer(producer_conf)
@@ -33,7 +33,7 @@ p = Producer(producer_conf)
 # configuration used for the kafka consumer
 consumer_conf = {
     # 'bootstrap.servers': 'localhost:9092',
-    'bootstrap.servers': "my-confluent-cp-kafka:9092",
+    'bootstrap.servers': "my-kafka:9092",
     'group.id': 'mygroup',
     'client.id': socket.gethostname(),
     'enable.auto.commit': True,
